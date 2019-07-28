@@ -18,12 +18,16 @@
 #define CRCVALSIZ 8 + 1
 #define ENTRYSIZ FNAMESIZ + CRCVALSIZ
 
+#define PB_STR "||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||"
+#define PB_WIDTH 60
+
 typedef unsigned char uchar;
 
 // Util functions
 void crc32b(uint32_t *crc, uchar *data, long nbytes);
 uint32_t calc_file_crc(FILE *fp);
 int verify(char *fname);
+void update_progress_bar(double pctg);
 int is_a_dot(char *fname);
 int traverse(char *dname);
 

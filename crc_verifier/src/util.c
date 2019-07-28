@@ -29,7 +29,7 @@ uint32_t calc_file_crc(FILE *fp)
 
     crc = 0xFFFFFFFF;
 
-    while ((nbytes = fread(buf, sizeof(unsigned char), BUFSIZ, fp)) > 0)
+    while ((nbytes = fread(buf, sizeof(uchar), BUFSIZ, fp)) > 0)
     {
         crc32b(&crc, buf, nbytes);
     }
@@ -39,17 +39,15 @@ uint32_t calc_file_crc(FILE *fp)
 }
 
 int verify(char *fname)
-{ 
+{
     int rc;
     uint32_t db_crc, file_crc;
     FILE *fp;
 
-    printf("  verify %s ... ", fname);
-
     fp = fopen(fname, "rb");
     if (fp == NULL)
     {
-        fprintf(stderr, "unable to open");
+        fprintf(stderr, "\nUnable to open: %s\n", fname);
         return -2;
     }
 
@@ -58,18 +56,29 @@ int verify(char *fname)
 
     if (file_crc == db_crc)
     {
-        printf("[%x = %x] -> OK!\n", file_crc, db_crc);
         rc = VERIFICATION_SUCCESS;
         verified_cnt++;
+        hashtable_checkmark(&htable, fname);
+        update_progress_bar((double)verified_cnt / htable.nelems);
     }
     else
     {
-        printf("[%x != %x] -> ERR!\n", file_crc, db_crc);
+        fprintf(stderr, "\nStopped at '%s' (%x != %x)\n",
+            fname, file_crc, db_crc);
         rc = VERIFICATION_FAILED;
     }
 
     fclose(fp);
     return rc;
+}
+
+void update_progress_bar(double pctg)
+{
+    int val = (int)(pctg * 100);
+    int lpad = (int)(pctg * PB_WIDTH);
+    int rpad = PB_WIDTH - lpad;
+    printf("\r%4d%% [%.*s%*s]", val, lpad, PB_STR, rpad, "");
+    fflush(stdout);
 }
 
 int is_a_dot(char *fname)
@@ -88,8 +97,8 @@ int traverse(char *dname)
     dir = opendir(dname);
     if (dir == NULL)
     {
-        puts("Can't open root directory");
-        return -4;
+        printf("\nCan't open directory: %s\n", dname);
+        return -5;
     }
 
     while ((dentry = readdir(dir)) != NULL)
@@ -97,8 +106,9 @@ int traverse(char *dname)
         sprintf(fname, "%s/%s", dname, dentry->d_name); // full path
         if ((lstat(fname, &stbuf)) == -1)
         {
-            printf("Unable to stat file: %s\n", fname);
-            continue;
+            printf("\nUnable to stat file: %s\n", fname);
+            rc = -6;
+            break;
         }
 
         if (S_ISDIR(stbuf.st_mode))
@@ -109,7 +119,8 @@ int traverse(char *dname)
                 if (rc != 0) break;
             }
         }
-        else if ((stbuf.st_mode & S_IXUSR)
+        else if (S_ISREG(stbuf.st_mode)
+            && (stbuf.st_mode & S_IXUSR)
             && (!S_ISLNK(stbuf.st_mode)))
         {
             rc = verify(fname);

@@ -10,7 +10,7 @@ int main(int argc, char *argv[])
     char db_raw_entry[ENTRYSIZ];
     char db_fname[FNAMESIZ];
     char db_crc[CRCVALSIZ];
-    uint32_t crc, lines_cnt = 0;
+    uint32_t crc, db_entries_cnt = 0;
     clock_t t;
     FILE *db_fp;
 
@@ -31,12 +31,12 @@ int main(int argc, char *argv[])
     // Calculate the number of files to verify
     while ((ch = fgetc(db_fp)) != EOF)
     {
-        if (ch == '\n') lines_cnt++;
+        if (ch == '\n') db_entries_cnt++;
     }
 
     rewind(db_fp);
 
-    hashtable_init(&htable, lines_cnt);
+    hashtable_init(&htable, db_entries_cnt);
 
     // Fill hashtable with 'CRC_DATABASE_FILE' content
     while (fgets(db_raw_entry, ENTRYSIZ, db_fp) != NULL)
@@ -48,9 +48,16 @@ int main(int argc, char *argv[])
 
     fclose(db_fp);
 
-    hashtable_print(&htable);
+//    hashtable_print(&htable);
 
-    puts("Start verification");
+    if (htable.nelems == 0)
+    {
+        puts("Database is empty");
+        rc = -3;
+        goto EXIT;
+    }
+
+    puts("Start verification . . .");
     verified_cnt = 0;
 
     // Change process CWD to 'ROOT_DIR', it's necessary for
@@ -58,7 +65,8 @@ int main(int argc, char *argv[])
     rc = chdir(argv[1]);
     if (rc < 0) {
         puts("Can't change dir to 'ROOT_DIR'");
-        return -3;
+        rc = -4;
+        goto EXIT;
     }
 
     t = clock();
@@ -66,10 +74,11 @@ int main(int argc, char *argv[])
     t = clock() - t;
     elapsed = ((double) t) / CLOCKS_PER_SEC;
 
-    printf((rc == VERIFICATION_SUCCESS) ? "Success: " : "Failed: ");
-    printf("%u of %u files verified\n", verified_cnt, lines_cnt);
-    printf("Elapsed: %lf sec\n", elapsed);
+    printf((rc == VERIFICATION_SUCCESS) ? "\nSuccess, " : "\nFailed, ");
+    printf("%u of %u files verified\n", verified_cnt, db_entries_cnt);
+    printf("Elapsed time: %lf sec\n", elapsed);
 
+EXIT:
     hashtable_free(&htable);
     return rc;
 }
