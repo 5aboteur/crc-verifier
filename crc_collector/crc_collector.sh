@@ -12,15 +12,15 @@ traverse() {
 		if [[ -f ${file} && -x ${file} && ! -L ${file} ]]; then
 			# Calculate crc value with this portable solution, taken from here
 			# https://stackoverflow.com/questions/44804668/how-to-calculate-crc32-checksum-from-a-string-on-linux-bash
-			crc=`cat ${file} | gzip -c | tail -c8 | od -t x4 -N 4 -A n`
+			crc=$(gzip -c < "${file}" | tail -c8 | od -t x4 -N 4 -A n)
 
 			# Insert pair {full_file_name} <=> {crc}
-			echo "${file}${crc}" >> ${crc_db}
+			echo "${file}${crc}" >> "${crc_db}"
 
 			# Increase collected files counter
 			collected_cnt=$((collected_cnt+1))
 		elif [[ -d ${file} ]]; then
-			traverse ${file}
+			traverse "${file}"
 		fi
 	done
 }
@@ -28,9 +28,9 @@ traverse() {
 echo "==> Run crc collector tool"
 
 # Clear database
-> ${crc_db}
+true > "${crc_db}"
 
-cd $1
+cd "$1"
 traverse "."
 
 echo "==> Collected files: ${collected_cnt}"
